@@ -4,7 +4,8 @@
  * src/ may change only in the reviewed interface-seam allowlist, plus the
  * reviewed structural entry split (DEV-01 amendment v2.1, Policy 3), which is
  * pinned by change status and exact git blob: any further edit of those files,
- * or any other status, is a violation.
+ * or any other status, is a violation. Split pins outside src/ are checked the
+ * same way.
  *   node scripts/ci/check-src-diff.mjs [base]
  */
 import { execFileSync } from 'node:child_process';
@@ -25,7 +26,14 @@ export const STRUCTURAL_SPLIT = [
   { status: 'M', path: 'src/cli.ts', blob: '348560c1574d1a97194f61b5e1203b9f0ba5d009' },
   { status: 'M', path: 'src/index.ts', blob: '6acf68ce7b5d948098b47426f9cbc1b8f508b9c3' },
   { status: 'A', path: 'src/main.ts', blob: 'ca10a2b1fd9b98347ee36ac62087bf05e088cc46' },
+  // Reviewed test-stability migration (DEV-01 A-43 remediation C1, SPLIT-ANCHOR-6): FO-03 waits for the
+  // RECVACK event (80 ms negative window, 2,000 ms positive wait) instead of a fixed sleep. This path is
+  // outside src/, so it is added to the diff scope below; any further edit of it is a violation.
+  { status: 'A', path: 'test/integration/fake-octo-transport.test.ts', blob: 'd8f336a5d10cd14ec33464a2f76470a46450bdf3' },
 ];
+
+/** Diff scope: src/ plus every structural-split pin outside src/. */
+const SCOPE = ['src', ...STRUCTURAL_SPLIT.map((s) => s.path).filter((p) => !p.startsWith('src/'))];
 
 /**
  * @param {{ root: string, base: string, changes?: Array<{ status: string, path: string, blob?: string }> }} opts
@@ -34,8 +42,8 @@ export const STRUCTURAL_SPLIT = [
 export function checkSrcDiff({ root, base, changes }) {
   let list = changes;
   if (!list) {
-    const diff = execFileSync('git', ['-C', root, 'diff', '--name-status', base, '--', 'src'], { encoding: 'utf8' }).trim();
-    const untracked = execFileSync('git', ['-C', root, 'ls-files', '--others', '--exclude-standard', '--', 'src'], { encoding: 'utf8' }).trim();
+    const diff = execFileSync('git', ['-C', root, 'diff', '--name-status', base, '--', ...SCOPE], { encoding: 'utf8' }).trim();
+    const untracked = execFileSync('git', ['-C', root, 'ls-files', '--others', '--exclude-standard', '--', ...SCOPE], { encoding: 'utf8' }).trim();
     list = [
       ...diff.split('\n').filter(Boolean).map((l) => { const [status, ...p] = l.split('\t'); return { status, path: p.at(-1) }; }),
       ...untracked.split('\n').filter(Boolean).map((p) => ({ status: 'A', path: p })),

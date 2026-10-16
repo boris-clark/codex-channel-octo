@@ -107,6 +107,7 @@ describe('DEV-01 scope', () => {
     expect(r.allowlist).toEqual(['src/seams/clock.ts', 'src/seams/fault-plan.ts']);
     expect(r.split.map((s: { status: string; path: string }) => `${s.status} ${s.path}`)).toEqual([
       'M src/__tests__/cli.test.ts', 'M src/__tests__/config-watcher.test.ts', 'A src/bin.ts', 'M src/cli.ts', 'M src/index.ts', 'A src/main.ts',
+      'A test/integration/fake-octo-transport.test.ts',
     ]);
   });
 
@@ -116,8 +117,13 @@ describe('DEV-01 scope', () => {
       { status: 'D', path: 'src/main.ts' },
       { status: 'M', path: 'src/bin.ts', blob: 'af90698bc67f64c299b9d86ac8d4238f8213c34a' },
       { status: 'A', path: 'src/main.ts', blob: 'ca10a2b1fd9b98347ee36ac62087bf05e088cc46' },
+      // FO-03 before the C1 test-stability migration (SPLIT-ANCHOR-5 blob): reverting it is a violation
+      { status: 'A', path: 'test/integration/fake-octo-transport.test.ts', blob: 'cc43e7b5a3efa805e472c34cca61d418480d81f2' },
+      { status: 'A', path: 'test/integration/fake-octo-transport.test.ts', blob: 'd8f336a5d10cd14ec33464a2f76470a46450bdf3' },
     ] });
-    expect(r.violations.map((v: { status: string; path: string }) => `${v.status} ${v.path}`)).toEqual(['M src/index.ts', 'D src/main.ts', 'M src/bin.ts']);
+    expect(r.violations.map((v: { status: string; path: string }) => `${v.status} ${v.path}`)).toEqual([
+      'M src/index.ts', 'D src/main.ts', 'M src/bin.ts', 'A test/integration/fake-octo-transport.test.ts',
+    ]);
   });
 
   it('CI-06: negative control — any other src path fails the scope check', () => {

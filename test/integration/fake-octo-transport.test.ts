@@ -115,9 +115,16 @@ describe('fake Octo WS: production WKSocket handshake and delivery', () => {
         messageId: '777', messageSeq: 7, fromUid: 'u_alice', channelId: 'u_alice', channelType: 1,
         rawCiphertext: Buffer.from('not-base64-ciphertext!!', 'latin1'),
       });
-      await sleep(80);
-      const acks = ws!.events.filter((e) => e.dir === 'in' && e.type === 'RECVACK');
-      expect(acks).toHaveLength(attempt === 3 ? 1 : 0);
+      const isRecvack = (e: { dir: string; type: string }) => e.dir === 'in' && e.type === 'RECVACK';
+      if (attempt < 3) {
+        // Negative window: no RECVACK may arrive within the original 80 ms observation window.
+        await expect(ws!.waitFor(isRecvack, 80)).rejects.toThrow(/timed out/);
+        expect(ws!.events.filter(isRecvack)).toHaveLength(0);
+      } else {
+        // The third delivery is ack-and-dropped: wait for the RECVACK event instead of a fixed sleep.
+        await ws!.waitFor(isRecvack, 2_000);
+        expect(ws!.events.filter(isRecvack)).toHaveLength(1);
+      }
     }
     expect(received).toHaveLength(0);
   });
