@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * codex-channel-octo CLI — a process supervisor for the gateway.
  *
@@ -18,9 +17,9 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { openSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, realpathSync } from 'node:fs';
+import { openSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { DEFAULT_CONFIG_PATH } from './config.js';
 import { configure } from './configure.js';
@@ -43,7 +42,7 @@ export function resolveSupervisorPaths(baseDir?: string): SupervisorPaths {
     baseDir: base,
     pidFile: join(base, 'codex-channel-octo.pid'),
     logFile: join(base, 'logs', 'gateway.log'),
-    indexEntry: fileURLToPath(new URL('./index.js', import.meta.url)),
+    indexEntry: fileURLToPath(new URL('./main.js', import.meta.url)),
   };
 }
 
@@ -488,19 +487,4 @@ export async function run(argv: string[], baseDir?: string, procId: ProcIdentity
       console.error(usage());
       return 2;
   }
-}
-
-// Run only when invoked as a script (production / linked bin), not when
-// imported (tests). When called via the `bin` symlink, Node resolves
-// import.meta.url to the real file but leaves process.argv[1] as the symlink
-// path — so resolve argv[1] to its realpath before comparing, or the linked
-// command would silently no-op.
-const entrypoint = process.argv[1];
-if (entrypoint && import.meta.url === pathToFileURL(realpathSync(entrypoint)).href) {
-  run(process.argv.slice(2))
-    .then((code) => process.exit(code))
-    .catch((err) => {
-      console.error('codex-channel-octo:', String(err));
-      process.exit(1);
-    });
 }

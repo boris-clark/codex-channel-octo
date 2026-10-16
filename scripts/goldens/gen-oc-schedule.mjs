@@ -19,7 +19,8 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { loadOutsideSource } from '../lib/load-outside-source.mjs';
 import { createRequire } from 'node:module';
 import * as esbuild from 'esbuild';
 
@@ -116,7 +117,7 @@ await esbuild.build({
     },
   }],
 });
-const oc = await import(pathToFileURL(bundlePath).href + `?t=${Date.now()}`);
+const oc = await loadOutsideSource(bundlePath);
 const initStubCalls = [...(globalThis.__ocStubCalls ?? [])];
 globalThis.__ocStubCalls = [];
 

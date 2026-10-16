@@ -164,11 +164,17 @@ describe('#157 watchConfig', () => {
         log: (m) => logs.push(m),
       });
       // change desired and rewrite the file → watcher should pick it up on its
-      // own (no manual applyNow, so the assertion proves the fs.watch path fired)
+      // own (no manual applyNow, so the assertion proves the fs.watch path fired).
+      // `fs.watch` arms its backend asynchronously on some platforms (macOS
+      // FSEvents), so a single write issued immediately after watchConfig() can
+      // land before the stream is live and is then never delivered. Re-issue the
+      // same idempotent desired state on a cadence until the watcher-driven
+      // reconcile is observed. This does not retry the assertion or touch the
+      // production watcher; it only guarantees at least one file event reaches a
+      // live stream. Bounded so a genuinely dead watcher still fails.
       desired = ['a', 'b'];
-      atomicWrite(path, ['a', 'b']);
-      // poll up to ~2s for the debounced watcher-driven reconcile to add 'b'
-      for (let i = 0; i < 40 && !mgr.added.includes('b'); i++) {
+      for (let i = 0; i < 100 && !mgr.added.includes('b'); i++) {
+        atomicWrite(path, ['a', 'b']);
         await new Promise((r) => setTimeout(r, 50));
       }
       expect(mgr.added).toContain('b');

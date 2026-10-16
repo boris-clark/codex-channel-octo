@@ -171,7 +171,7 @@ describe('resolveSupervisorPaths', () => {
     expect(p.baseDir).toBe('/tmp/base');
     expect(p.pidFile).toBe('/tmp/base/codex-channel-octo.pid');
     expect(p.logFile).toBe('/tmp/base/logs/gateway.log');
-    expect(p.indexEntry).toMatch(/index\.js$/);
+    expect(p.indexEntry).toMatch(/main\.js$/);
   });
 
   it('defaults baseDir to the global config directory', () => {

@@ -8,13 +8,14 @@
 import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { loadOutsideSource } from '../lib/load-outside-source.mjs';
 
 export const ORIGINAL_TABLES = ['sessions', 'messages', 'group_members', 'reset_barriers', 'sdk_sessions', 'conversation_document_state', 'group_messages', 'group_context_cursors'];
 /** Wall-clock columns the baseline writes with Date.now(); excluded from semantic hashes by declaration. */
 const VOLATILE = new Set(['created_at', 'updated_at', 'timestamp']);
 
-const load = (distDir, mod) => import(pathToFileURL(join(distDir, mod)).href);
+// The baseline build lives under .cache/downgrade/<commit>/dist, outside src/ and dist/.
+const load = (distDir, mod) => loadOutsideSource(join(distDir, mod));
 
 export async function seedPopulatedDb(dbPath, distDir) {
   const { createAdapter } = await load(distDir, 'db-adapter.js');

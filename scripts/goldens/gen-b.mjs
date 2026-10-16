@@ -20,7 +20,8 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { loadOutsideSource } from '../lib/load-outside-source.mjs';
 import { createRequire } from 'node:module';
 import * as esbuild from 'esbuild';
 import ts from 'typescript';
@@ -64,9 +65,14 @@ await esbuild.build({
   }],
 });
 console.debug = () => undefined; // B logs expected decrypt failures for the poison vectors
-const Bmod = await import(pathToFileURL(bundlePath).href + `?t=${Date.now()}`);
+const Bmod = await loadOutsideSource(bundlePath);
 const { generateKeyPair } = require('curve25519-js');
-const depVersions = Object.fromEntries(['crypto-js', 'curve25519-js', 'md5-typescript', 'ws'].map((d) => [d, require(`${d}/package.json`).version]));
+const depVersions = {
+  'crypto-js': require('crypto-js/package.json').version,
+  'curve25519-js': require('curve25519-js/package.json').version,
+  'md5-typescript': require('md5-typescript/package.json').version,
+  ws: require('ws/package.json').version,
+};
 
 const seed = (label) => createHash('sha256').update(label).digest();
 

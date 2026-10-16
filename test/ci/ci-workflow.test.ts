@@ -105,6 +105,19 @@ describe('DEV-01 scope', () => {
     const r = checkSrcDiff({ root: ROOT, base: pins.A });
     expect(r.violations).toEqual([]);
     expect(r.allowlist).toEqual(['src/seams/clock.ts', 'src/seams/fault-plan.ts']);
+    expect(r.split.map((s: { status: string; path: string }) => `${s.status} ${s.path}`)).toEqual([
+      'M src/__tests__/cli.test.ts', 'M src/__tests__/config-watcher.test.ts', 'A src/bin.ts', 'M src/cli.ts', 'M src/index.ts', 'A src/main.ts',
+    ]);
+  });
+
+  it('CI-06b: negative control — a structural-split path with another status or content fails the scope check', () => {
+    const r = checkSrcDiff({ root: ROOT, base: pins.A, changes: [
+      { status: 'M', path: 'src/index.ts', blob: '0'.repeat(40) },
+      { status: 'D', path: 'src/main.ts' },
+      { status: 'M', path: 'src/bin.ts', blob: 'af90698bc67f64c299b9d86ac8d4238f8213c34a' },
+      { status: 'A', path: 'src/main.ts', blob: 'ca10a2b1fd9b98347ee36ac62087bf05e088cc46' },
+    ] });
+    expect(r.violations.map((v: { status: string; path: string }) => `${v.status} ${v.path}`)).toEqual(['M src/index.ts', 'D src/main.ts', 'M src/bin.ts']);
   });
 
   it('CI-06: negative control — any other src path fails the scope check', () => {

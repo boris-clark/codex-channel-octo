@@ -4,10 +4,11 @@
   "description": "Bridge OpenAI Codex (via @openai/codex-sdk) to Octo IM — independent Node.js gateway",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json"
+  },
   "bin": {
-    "codex-channel-octo": "dist/cli.js"
+    "codex-channel-octo": "dist/bin.js"
   },
   "files": [
     "dist",
@@ -33,7 +34,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/index.js",
+    "start": "node dist/main.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/ --max-warnings 0",
     "test": "vitest run",

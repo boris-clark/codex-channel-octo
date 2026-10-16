@@ -56,7 +56,7 @@ function configPathForWatch(): string {
   return DEFAULT_CONFIG_PATH;
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   // --- Q8: Global unhandled rejection handler ---
   process.on('unhandledRejection', (reason) => {
     console.error('[codex-channel-octo] Unhandled rejection:', reason instanceof Error ? reason.message : reason);
@@ -965,22 +965,11 @@ function seedHistoryFromApi(
   }
 }
 
-// Only auto-start the gateway when this module is run directly (production
-// entrypoint or the installed `codex-channel-octo` bin), NOT when it is imported
-// (e.g. tests importing handleMessage).
-// `process.argv[1]` is undefined under `node -e`/`--input-type`, so guard it.
-// When invoked via the bin, `process.argv[1]` is a symlink under
-// `node_modules/.bin/` whose href would NOT equal the resolved module url —
-// so canonicalize both sides with realpath before comparing.
-const entrypoint = process.argv[1];
-if (entrypoint && isMainModule(entrypoint)) {
-  main().catch((err) => {
-    console.error('[codex-channel-octo] Fatal error:', String(err));
-    process.exit(1);
-  });
-}
-
-function isMainModule(argvPath: string): boolean {
+// Retained exported helper. Auto-start moved to the dedicated process entry
+// ./main.ts, so importing this module never starts the gateway. The helper still
+// canonicalizes `process.argv[1]` (undefined under `node -e`) and bin symlinks
+// with realpath before comparing hrefs.
+export function isMainModule(argvPath: string): boolean {
   try {
     const resolvedArgv = pathToFileURL(realpathSync(argvPath)).href;
     const resolvedSelf = pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
