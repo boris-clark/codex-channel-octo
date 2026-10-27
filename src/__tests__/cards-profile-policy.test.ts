@@ -81,7 +81,10 @@ describe("strict server profile policy", () => {
     [{ card_version: undefined }, ["enabled", "disabled", "disabled"]],
     [{ elements: [] }, ["enabled", "disabled", "disabled"]],
     [{ elements: ["TextBlock"] }, ON],
-    [{ elements: ["TextBlock", "Image"] }, ["enabled", "disabled", "disabled"]],
+    // D-W1b: display narrows to the known element intersection; interaction stays strict.
+    [{ elements: ["TextBlock", "Image"] }, ["enabled", "enabled", "disabled"]],
+    [{ elements: ["RichTextBlock", "Image"] }, ["enabled", "disabled", "disabled"]],
+    [{ actions: ["Action.OpenUrl", "Action.Unknown"] }, ["enabled", "disabled", "disabled"]],
     [{ inputs: ["Input.Image"] }, ["enabled", "enabled", "disabled"]],
     [{ inputs: undefined }, ["enabled", "enabled", "disabled"]],
     [{ actions: ["Action.OpenUrl"] }, ["enabled", "enabled", "disabled"]],
@@ -95,6 +98,16 @@ describe("strict server profile policy", () => {
     [{ limits: { max_inputs_bytes: 0 } }, ["enabled", "enabled", "disabled"]],
   ])("narrows exactly affected capability %#", (delta, expected) => {
     expect(states(profile(delta))).toEqual(expected);
+  });
+
+  it("intersects display elements with the closed list and keeps interaction and automatic unaffected", () => {
+    const p = parseProfile(profile({ elements: ["TextBlock", "Image", "FactSet", "ImageSet", "ActionSet"] }));
+    expect(p.display.state).toBe("enabled");
+    expect([...p.display.elements]).toEqual(["TextBlock", "FactSet", "ActionSet"]);
+    expect(p.interaction.state).toBe("disabled");
+    expect([...p.interaction.inputs]).toEqual([]);
+    expect(p.automatic.state).toBe("enabled");
+    expect(p.reasons).toEqual(["profile_incompatible"]);
   });
 
   it("rejects unknown keys at every projected contract boundary", () => {

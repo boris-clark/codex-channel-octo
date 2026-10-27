@@ -177,10 +177,30 @@ describe('production registration (B5) and fail-closed live profile', () => {
     expect(BASELINE_DISPLAY_CAPABILITIES.limits).toEqual(LIMITS);
   });
 
-  it('the live profile still negotiates display as disabled (Image/ImageSet are not in the closed list)', () => {
+  it('the live profile enables display over the known element intersection only (D-W1b)', () => {
     const p = parseProfile(projectCardProfile(liveProfileJson() as unknown as JsonValue));
-    expect(p.display.state).toBe('disabled');
+    expect(p.display.state).toBe('enabled');
+    expect([...p.display.elements].sort()).toEqual(['ActionSet', 'ColumnSet', 'Container', 'FactSet', 'RichTextBlock', 'Table', 'TextBlock']);
+    expect(p.display.elements.has('Image')).toBe(false);
+    expect(p.interaction.state).toBe('disabled');
     expect(p.reasons).toContain('profile_incompatible');
+  });
+
+  it('interaction stays disabled on the live profile even with Action.Submit while Image remains', () => {
+    const body = liveProfileJson() as unknown as { actions: string[] };
+    body.actions = [...body.actions, 'Action.Submit'];
+    const p = parseProfile(projectCardProfile(body as unknown as JsonValue));
+    expect(p.display.state).toBe('enabled');
+    expect(p.interaction.state).toBe('disabled');
+  });
+
+  it('a live profile without TextBlock or with an unknown action has no display', () => {
+    const noText = liveProfileJson() as unknown as { elements: string[] };
+    noText.elements = noText.elements.filter((e) => e !== 'TextBlock');
+    expect(parseProfile(projectCardProfile(noText as unknown as JsonValue)).display.state).toBe('disabled');
+    const unknownAction = liveProfileJson() as unknown as { actions: string[] };
+    unknownAction.actions = [...unknownAction.actions, 'Action.Execute'];
+    expect(parseProfile(projectCardProfile(unknownAction as unknown as JsonValue)).display.state).toBe('disabled');
   });
 });
 
@@ -407,8 +427,10 @@ async function productionRuntime(profileBody: unknown) {
   cleanups.push(async () => { await runtime.close('shutdown'); adapter.close(); });
   const cwd = mkdtempSync(join('/tmp', 'wp09-cwd-'));
   roots.push(cwd);
-  const input = (): CardTurnInput => ({ dispatchId: `d-${randomUUID()}`, sessionKey: `s-${randomUUID()}`, channelId: 'c', channelType: 1,
-    requesterUid: 'u', resetEpoch: 0, cron: false, deadlineMono: time.now() + 300_000, sessionCwd: () => cwd, currentResetEpoch: () => 0 });
+  const input = (routeFacts: CardTurnInput['routeFacts'] = { obo: undefined, docTask: undefined }): CardTurnInput => ({
+    dispatchId: `d-${randomUUID()}`, sessionKey: `s-${randomUUID()}`, channelId: 'c', channelType: 1,
+    requesterUid: 'u', resetEpoch: 0, cron: false, deadlineMono: time.now() + 300_000, sessionCwd: () => cwd, currentResetEpoch: () => 0,
+    routeFacts });
   const ledger = () => ({
     generations: (adapter.prepare('SELECT COUNT(*) AS n FROM card_handler_generations').get() as { n: number }).n,
     requests: (adapter.prepare('SELECT COUNT(*) AS n FROM card_explicit_requests').get() as { n: number }).n,
@@ -418,7 +440,8 @@ async function productionRuntime(profileBody: unknown) {
 }
 
 describe('runtime-level production path with the live profile (WP09-PF N2 replacement)', () => {
-  it('the real production table offers no op, opens no attempt and writes no ledger row while the live profile disables display', async () => {
+  it('the real production table offers no op, opens no attempt and writes no ledger row while route facts are unproven', async () => {
+    // index.ts passes undefined route facts until a trusted contract exists; display is enabled on the live profile.
     const r = await productionRuntime(liveProfileJson());
     expect(r.profileReads()).toBeGreaterThan(0);
     for (let i = 0; i < 3; i++) {
@@ -430,12 +453,18 @@ describe('runtime-level production path with the live profile (WP09-PF N2 replac
     expect(r.ledger()).toEqual({ generations: 0, requests: 0, messages: 0 });
   });
 
-  it.runIf(explicitPlatformCertified())('control: the same rig with display enabled does offer display, so the refusal above is G-a', async () => {
-    const enabled = liveProfileJson() as unknown as { elements: string[] };
-    enabled.elements = enabled.elements.filter((e) => e !== 'Image' && e !== 'ImageSet');
-    const r = await productionRuntime(enabled);
-    const begun = r.runtime.beginTurn(r.input())!;
+  it.runIf(explicitPlatformCertified())('control: the same rig with both route facts proven false offers display, so the refusal above is the route gate', async () => {
+    const r = await productionRuntime(liveProfileJson());
+    const begun = r.runtime.beginTurn(r.input({ obo: false, docTask: false }))!;
     expect(begun.injection).toBeDefined();
     expect(r.ledger()).toMatchObject({ generations: 1, requests: 0, messages: 0 });
+  });
+
+  it('a live profile that disables display offers nothing even with proven route facts (G-a)', async () => {
+    const disabled = liveProfileJson() as unknown as { elements: string[] };
+    disabled.elements = disabled.elements.filter((e) => e !== 'TextBlock');
+    const r = await productionRuntime(disabled);
+    expect(r.runtime.beginTurn(r.input({ obo: false, docTask: false }))!.injection).toBeUndefined();
+    expect(r.ledger()).toEqual({ generations: 0, requests: 0, messages: 0 });
   });
 });

@@ -102,7 +102,8 @@ async function runtimeRig(over: { ops?: boolean; prof?: () => unknown; exposure?
   let n = 0;
   const input = (o: Partial<CardTurnInput> = {}): CardTurnInput => ({
     dispatchId: `d-${++n}`, sessionKey: `s-${n}`, channelId: "c", channelType: 1, requesterUid: "u", resetEpoch: 0, cron: false,
-    deadlineMono: time.now() + 300_000, sessionCwd: () => cwd, currentResetEpoch: () => 0, ...o,
+    deadlineMono: time.now() + 300_000, sessionCwd: () => cwd, currentResetEpoch: () => 0,
+    routeFacts: { obo: false, docTask: false }, ...o,
   });
   return { runtime, adapter, time, dataDir, input };
 }
@@ -143,7 +144,12 @@ describe("injection gate G-a…G-g at beginTurn (AM-08 v4 §7.2; AC-011.3/.11)",
   it("G-e/G-a/G-d and missing trusted inputs fail closed", async () => {
     const r = await runtimeRig();
     for (const bad of [{ cron: true }, { deadlineMono: undefined }, { deadlineMono: r.time.now() - 1 }, { sessionCwd: undefined },
-      { currentResetEpoch: undefined }, { sessionCwd: () => { throw new Error("cwd"); } }] as Partial<CardTurnInput>[]) {
+      { currentResetEpoch: undefined }, { sessionCwd: () => { throw new Error("cwd"); } },
+      // Route facts (D-W1b): missing or undefined is no offer, true is ineligible; only both exactly false admit.
+      { routeFacts: undefined }, { routeFacts: {} }, { routeFacts: { obo: undefined, docTask: undefined } },
+      { routeFacts: { obo: false, docTask: undefined } }, { routeFacts: { obo: undefined, docTask: false } },
+      { routeFacts: { obo: true, docTask: false } }, { routeFacts: { obo: false, docTask: true } },
+      { routeFacts: { obo: 0, docTask: false } }, { routeFacts: null }] as unknown as Partial<CardTurnInput>[]) {
       expect(r.runtime.beginTurn(r.input(bad))!.injection).toBeUndefined();
     }
     const denied = await runtimeRig({ prof: () => profile({ config: { card_enabled: true, reasoning_enabled: true,
