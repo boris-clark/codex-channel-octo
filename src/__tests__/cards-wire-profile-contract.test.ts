@@ -41,11 +41,16 @@ describe("live card profile wire_profile contract", () => {
     expect(negotiate(p).automatic.state).toBe("enabled");
   });
 
-  it("keeps display and interaction fail-closed for the same live profile (not widened by this fix)", () => {
+  it("intersects display elements on the live profile while interaction stays fail-closed", () => {
     const p = parsedLive();
-    // Image/ImageSet are outside the client display element allowlist; no Action.Submit means no interaction.
-    expect([p.display.state, p.interaction.state]).toEqual(["disabled", "disabled"]);
+    // Image/ImageSet are outside the client display element allowlist: display uses the known intersection only;
+    // interaction keeps the strict list (and has no Action.Submit).
+    expect([p.display.state, p.interaction.state]).toEqual(["enabled", "disabled"]);
     expect(p.reasons).toEqual(["profile_incompatible"]);
+    expect([...p.display.elements].sort()).toEqual(["ActionSet", "ColumnSet", "Container", "FactSet", "RichTextBlock", "Table", "TextBlock"]);
+    expect(parsedLive(b => { (b as { elements: string[] }).elements = b.elements.filter(e => e !== "TextBlock"); }).display.state).toBe("disabled");
+    expect(parsedLive(b => { (b.actions as string[]).push("Action.Submit"); }).interaction.state).toBe("disabled");
+    expect(parsedLive(b => { (b.actions as string[]).push("Action.Execute"); }).display.state).toBe("disabled");
   });
 
   it.each([
