@@ -463,6 +463,8 @@ export async function handleMessage(
           resetEpoch: typeof barrier === 'number' ? barrier : 0, cron: isAuthenticCronFire(msg.payload),
           deadlineMono: turn.deadline, sessionCwd: () => resolveSessionCwd(config.cwdBase ?? config.cwd, sessionCtx),
           currentResetEpoch: () => { const b = store.getResetBarrier(sessionKey); return typeof b === 'number' ? b : 0; },
+          // No trusted contract proves OBO/document-task facts yet: unknown, so no explicit tool is offered.
+          routeFacts: { obo: undefined, docTask: undefined },
         });
         cardTurn = begun?.coordinator;
         cardInjection = begun?.injection;
